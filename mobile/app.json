@@ -2,6 +2,20 @@
   "expo": {
     "name": "ChefConnect",
     "slug": "chefconnect",
-    "version": "0.1.0"
+    "version": "0.1.0",
+    "scheme": "chefconnect",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#fbf9f4"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ]
   }
 }
