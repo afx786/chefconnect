@@ -43,10 +43,10 @@ def test_seed_data_is_consistent():
     session = _make_session()
     seed_database(session)
 
-    assert session.query(Chef).count() == 4
-    assert session.query(Dish).count() == 12
-    assert session.query(User).count() == 3
-    assert session.query(Booking).count() == 4
+    assert session.query(Chef).count() == 11
+    assert session.query(Dish).count() == 33
+    assert session.query(User).count() == 11
+    assert session.query(Booking).count() == 11
 
     chef_ids = {chef.id for chef in session.query(Chef).all()}
     user_ids = {user.id for user in session.query(User).all()}
@@ -79,9 +79,9 @@ def test_seed_is_idempotent():
     seed_database(session)
     seed_database(session)
 
-    assert session.query(Chef).count() == 4
-    assert session.query(Dish).count() == 12
-    assert session.query(User).count() == 3
-    assert session.query(Booking).count() == 4
+    assert session.query(Chef).count() == 11
+    assert session.query(Dish).count() == 33
+    assert session.query(User).count() == 11
+    assert session.query(Booking).count() == 11
 
     session.close()
