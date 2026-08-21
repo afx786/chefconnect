@@ -15,6 +15,10 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+psycopg://postgres:changeme@localhost:5432/chefconnect"
 
+    JWT_SECRET_KEY: str = "dev-secret-replace-with-32-plus-char-key-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
 
 @lru_cache
 def get_settings() -> Settings:
