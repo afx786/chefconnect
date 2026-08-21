@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { Animated, StyleSheet, TouchableOpacity, Text, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
@@ -11,57 +11,80 @@ interface ChefCardProps {
   chef: Chef;
   onBook: (chef: Chef) => void;
   onPress: (chef: Chef) => void;
+  index?: number;
 }
 
-export default function ChefCard({ chef, onBook, onPress }: ChefCardProps) {
-  return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.9}
-      onPress={() => onPress(chef)}
-    >
-      <View style={styles.imagePlaceholder}>
-        <MaterialIcons name="restaurant" size={48} color={Colors.outlineVariant} />
-        <View style={styles.ratingBadge}>
-          <MaterialIcons name="star" size={14} color={Colors.star} />
-          <Text style={styles.ratingText}>{chef.rating}</Text>
-        </View>
-      </View>
+export default function ChefCard({ chef, onBook, onPress, index = 0 }: ChefCardProps) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(24)).current;
 
-      <View style={styles.body}>
-        <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.chefName}>{chef.name}</Text>
-            <View style={styles.metaRow}>
-              <MaterialIcons name="restaurant" size={14} color={Colors.onSurfaceVariant} />
-              <Text style={styles.metaText}>{chef.cuisine}</Text>
-              <Text style={styles.metaDot}> · </Text>
-              <MaterialIcons name="location-on" size={14} color={Colors.onSurfaceVariant} />
-              <Text style={styles.metaText}>{chef.locality}</Text>
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 350,
+        delay: index * 80,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 350,
+        delay: index * 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.9}
+        onPress={() => onPress(chef)}
+      >
+        <View style={styles.imagePlaceholder}>
+          <MaterialIcons name="restaurant" size={48} color={Colors.outlineVariant} />
+          <View style={styles.ratingBadge}>
+            <MaterialIcons name="star" size={14} color={Colors.star} />
+            <Text style={styles.ratingText}>{chef.rating}</Text>
+          </View>
+        </View>
+
+        <View style={styles.body}>
+          <View style={styles.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.chefName}>{chef.name}</Text>
+              <View style={styles.metaRow}>
+                <MaterialIcons name="restaurant" size={14} color={Colors.onSurfaceVariant} />
+                <Text style={styles.metaText}>{chef.cuisine}</Text>
+                <Text style={styles.metaDot}> · </Text>
+                <MaterialIcons name="location-on" size={14} color={Colors.onSurfaceVariant} />
+                <Text style={styles.metaText}>{chef.locality}</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.dishBox}>
-          <Text style={styles.dishLabel}>SIGNATURE DISH</Text>
-          <Text style={styles.dishName}>{chef.signature_dish}</Text>
-        </View>
-
-        <View style={styles.footer}>
-          <View>
-            <Text style={styles.price}>{formatCurrency(chef.price_per_meal)}</Text>
-            <Text style={styles.priceUnit}> / meal</Text>
+          <View style={styles.dishBox}>
+            <Text style={styles.dishLabel}>SIGNATURE DISH</Text>
+            <Text style={styles.dishName}>{chef.signature_dish}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.bookButton}
-            activeOpacity={0.85}
-            onPress={() => onBook(chef)}
-          >
-            <Text style={styles.bookButtonText}>Book Chef</Text>
-          </TouchableOpacity>
+
+          <View style={styles.footer}>
+            <View>
+              <Text style={styles.price}>{formatCurrency(chef.price_per_meal)}</Text>
+              <Text style={styles.priceUnit}> / meal</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.bookButton}
+              activeOpacity={0.85}
+              onPress={() => onBook(chef)}
+            >
+              <Text style={styles.bookButtonText}>Book Chef</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 

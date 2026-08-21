@@ -15,8 +15,8 @@ export default function ChefList({ chefs, onBook, onPress }: ChefListProps) {
     <FlatList
       data={chefs}
       keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => (
-        <ChefCard chef={item} onBook={onBook} onPress={onPress} />
+      renderItem={({ item, index }) => (
+        <ChefCard chef={item} onBook={onBook} onPress={onPress} index={index} />
       )}
       contentContainerStyle={styles.list}
       showsVerticalScrollIndicator={false}
