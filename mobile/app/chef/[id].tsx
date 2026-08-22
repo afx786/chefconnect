@@ -36,6 +36,14 @@ export default function ChefDetailScreen() {
     }
   }, [isAuthenticated, awaitingAuth]);
 
+  useEffect(() => {
+    if (!isAuthenticated && bookingVisible) {
+      setBookingVisible(false);
+      setAwaitingAuth(true);
+      router.push('/(auth)/login');
+    }
+  }, [isAuthenticated, bookingVisible]);
+
   const handleBookPress = () => {
     if (!isAuthenticated) {
       setAwaitingAuth(true);

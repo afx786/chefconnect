@@ -29,7 +29,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const token = await getToken();
         if (token) {
           const payload = JSON.parse(atob(token.split('.')[1]));
-          setUser({ id: Number(payload.sub), name: '', email: '' });
+          const expiresAtMs = Number(payload.exp) * 1000;
+          if (!expiresAtMs || expiresAtMs <= Date.now()) {
+            await removeToken();
+          } else {
+            setUser({ id: Number(payload.sub), name: '', email: '' });
+          }
         }
       } catch {
         await removeToken();

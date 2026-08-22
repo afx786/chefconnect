@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import { Typography } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 import { useChefs } from '@/hooks/useChefs';
 import { Chef } from '@/types/chef';
+import { useAuthContext } from '@/context/AuthContext';
 import FilterBar from '@/components/FilterBar';
 import ChefList from '@/components/ChefList';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -16,6 +17,7 @@ import BookingModal from '@/components/BookingModal';
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const { isAuthenticated } = useAuthContext();
   const {
     chefs,
     loading,
@@ -29,9 +31,30 @@ export default function ExploreScreen() {
 
   const [selectedChef, setSelectedChef] = useState<Chef | null>(null);
   const [bookingVisible, setBookingVisible] = useState(false);
+  const [awaitingAuth, setAwaitingAuth] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && awaitingAuth && selectedChef) {
+      setAwaitingAuth(false);
+      setBookingVisible(true);
+    }
+  }, [isAuthenticated, awaitingAuth, selectedChef]);
+
+  useEffect(() => {
+    if (!isAuthenticated && bookingVisible) {
+      setBookingVisible(false);
+      setAwaitingAuth(true);
+      router.push('/(auth)/login');
+    }
+  }, [isAuthenticated, bookingVisible]);
 
   const handleBook = (chef: Chef) => {
     setSelectedChef(chef);
+    if (!isAuthenticated) {
+      setAwaitingAuth(true);
+      router.push('/(auth)/login');
+      return;
+    }
     setBookingVisible(true);
   };
 
