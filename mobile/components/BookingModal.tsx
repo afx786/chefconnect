@@ -17,7 +17,6 @@ import { Typography } from '@/constants/typography';
 import { Spacing, BorderRadius } from '@/constants/spacing';
 import { Chef } from '@/types/chef';
 import { MealSlot } from '@/types/booking';
-import { DEMO_USER_ID } from '@/constants/config';
 import { useBooking } from '@/hooks/useBooking';
 import { formatDate } from '@/utils/formatDate';
 import Button from './Button';
@@ -55,7 +54,6 @@ export default function BookingModal({ visible, chef, onClose }: BookingModalPro
     const dateStr = date.toISOString().split('T')[0];
     await submit({
       chef_id: chef.id,
-      user_id: DEMO_USER_ID,
       booking_date: dateStr,
       meal_slot: mealSlot,
       special_requests: specialRequests || null,

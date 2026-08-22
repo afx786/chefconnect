@@ -5,8 +5,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
 import { Spacing, BorderRadius } from '@/constants/spacing';
+import { useAuthContext } from '@/context/AuthContext';
+import Button from '@/components/Button';
 
 export default function ProfileScreen() {
+  const { user, logout } = useAuthContext();
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
@@ -17,21 +21,22 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <MaterialIcons name="person" size={48} color={Colors.onPrimary} />
           </View>
-          <Text style={styles.name}>Demo User</Text>
-          <Text style={styles.email}>demo@chefconnect.com</Text>
+          <Text style={styles.name}>{user?.name || 'ChefConnect User'}</Text>
+          <Text style={styles.email}>{user?.email || ''}</Text>
         </View>
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <MaterialIcons name="location-on" size={20} color={Colors.onSurfaceVariant} />
-            <Text style={styles.infoLabel}>Location</Text>
-            <Text style={styles.infoValue}>Ghaziabad, UP</Text>
+            <MaterialIcons name="person" size={20} color={Colors.onSurfaceVariant} />
+            <Text style={styles.infoLabel}>User ID</Text>
+            <Text style={styles.infoValue}>{user?.id || '-'}</Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.infoRow}>
-            <MaterialIcons name="phone" size={20} color={Colors.onSurfaceVariant} />
-            <Text style={styles.infoLabel}>Phone</Text>
-            <Text style={styles.infoValue}>+91 98765 43210</Text>
-          </View>
+        </View>
+        <View style={styles.logoutSection}>
+          <Button
+            title="Sign Out"
+            onPress={logout}
+            variant="secondary"
+          />
         </View>
       </View>
     </SafeAreaView>
@@ -101,8 +106,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'right',
   },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.divider,
+  logoutSection: {
+    marginTop: Spacing.xl,
   },
 });

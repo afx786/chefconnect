@@ -4,7 +4,6 @@ export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CHEF_EN_ROUTE';
 
 export interface BookingCreate {
   chef_id: number;
-  user_id: number;
   booking_date: string;
   meal_slot: MealSlot;
   special_requests?: string | null;

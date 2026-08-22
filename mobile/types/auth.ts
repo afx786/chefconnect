@@ -2,8 +2,6 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  phone: string;
-  location: string;
 }
 
 export interface LoginRequest {
@@ -14,11 +12,16 @@ export interface LoginRequest {
 export interface SignupRequest {
   name: string;
   email: string;
-  phone: string;
   password: string;
 }
 
-export interface AuthResponse {
-  user: User;
-  token: string;
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+}
+
+export interface SignupResponse {
+  id: number;
+  name: string;
+  email: string;
 }
