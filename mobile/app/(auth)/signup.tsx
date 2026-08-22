@@ -48,7 +48,7 @@ export default function SignupScreen() {
           <Text style={styles.successSubtitle}>You can now sign in with your credentials</Text>
           <Button
             title="Go to Sign In"
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => router.replace('/(auth)/login')}
             style={styles.successButton}
           />
         </View>
@@ -139,7 +139,7 @@ export default function SignupScreen() {
 
           <TouchableOpacity
             style={styles.loginLink}
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => router.replace('/(auth)/login')}
           >
             <Text style={styles.loginText}>
               Already have an account? <Text style={styles.loginBold}>Sign in</Text>

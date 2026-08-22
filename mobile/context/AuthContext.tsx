@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '@/types/auth';
 import { getToken, removeToken } from '@/services/tokenStorage';
+import { setOnSessionExpired } from '@/services/api';
 import { login as apiLogin, signup as apiSignup } from '@/services/authService';
 import { LoginRequest, SignupRequest } from '@/types/auth';
 
@@ -36,6 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    setOnSessionExpired(() => setUser(null));
+    return () => setOnSessionExpired(null);
   }, []);
 
   const login = useCallback(async (data: LoginRequest) => {

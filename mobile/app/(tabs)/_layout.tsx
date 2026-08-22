@@ -2,8 +2,11 @@ import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
+import { useAuthContext } from '@/context/AuthContext';
 
 export default function TabsLayout() {
+  const { isAuthenticated } = useAuthContext();
+
   return (
     <Tabs
       screenOptions={{
@@ -36,6 +39,7 @@ export default function TabsLayout() {
         name="bookings"
         options={{
           title: 'Bookings',
+          href: isAuthenticated ? undefined : null,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="calendar-today" size={size} color={color} />
           ),
@@ -45,6 +49,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          href: isAuthenticated ? undefined : null,
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="person" size={size} color={color} />
           ),

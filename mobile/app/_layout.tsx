@@ -6,7 +6,7 @@ import { Colors } from '@/constants/colors';
 import { AuthProvider, useAuthContext } from '@/context/AuthContext';
 
 function RootNavigator() {
-  const { isAuthenticated, isLoading } = useAuthContext();
+  const { isLoading } = useAuthContext();
 
   if (isLoading) {
     return (
@@ -23,12 +23,9 @@ function RootNavigator() {
         contentStyle: { backgroundColor: Colors.background },
       }}
     >
-      {isAuthenticated ? (
-        <Stack.Screen name="(tabs)" />
-      ) : (
-        <Stack.Screen name="(auth)" />
-      )}
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen name="chef/[id]" />
+      <Stack.Screen name="(auth)" />
     </Stack>
   );
 }

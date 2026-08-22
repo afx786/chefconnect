@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Redirect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
@@ -9,7 +10,11 @@ import { useAuthContext } from '@/context/AuthContext';
 import Button from '@/components/Button';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuthContext();
+  const { user, logout, isAuthenticated } = useAuthContext();
+
+  if (!isAuthenticated) {
+    return <Redirect href="/(tabs)/explore" />;
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

@@ -29,6 +29,7 @@ export default function LoginScreen() {
     if (!email.trim() || !password) return;
     try {
       await login({ email: email.trim(), password });
+      router.back();
     } catch {
       // error is in context
     }
@@ -103,7 +104,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.signupLink}
-            onPress={() => router.push('/(auth)/signup')}
+            onPress={() => router.replace('/(auth)/signup')}
           >
             <Text style={styles.signupText}>
               Don't have an account? <Text style={styles.signupBold}>Sign up</Text>

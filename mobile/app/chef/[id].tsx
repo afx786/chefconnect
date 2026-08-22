@@ -14,6 +14,7 @@ import { Spacing, BorderRadius, Shadow } from '@/constants/spacing';
 import { Chef } from '@/types/chef';
 import { fetchChefs } from '@/services/chefService';
 import { formatCurrency } from '@/utils/formatCurrency';
+import { useAuthContext } from '@/context/AuthContext';
 import BookingModal from '@/components/BookingModal';
 import ErrorMessage from '@/components/ErrorMessage';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -21,10 +22,28 @@ import LoadingScreen from '@/components/LoadingScreen';
 export default function ChefDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { isAuthenticated } = useAuthContext();
   const [chef, setChef] = useState<Chef | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookingVisible, setBookingVisible] = useState(false);
+  const [awaitingAuth, setAwaitingAuth] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated && awaitingAuth) {
+      setAwaitingAuth(false);
+      setBookingVisible(true);
+    }
+  }, [isAuthenticated, awaitingAuth]);
+
+  const handleBookPress = () => {
+    if (!isAuthenticated) {
+      setAwaitingAuth(true);
+      router.push('/(auth)/login');
+      return;
+    }
+    setBookingVisible(true);
+  };
 
   useEffect(() => {
     (async () => {
@@ -145,7 +164,7 @@ export default function ChefDetailScreen() {
         </View>
         <TouchableOpacity
           style={styles.bookButton}
-          onPress={() => setBookingVisible(true)}
+          onPress={handleBookPress}
           activeOpacity={0.85}
         >
           <Text style={styles.bookButtonText}>Book Chef</Text>
