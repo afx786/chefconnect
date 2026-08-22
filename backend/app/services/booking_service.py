@@ -7,14 +7,7 @@ from app.models.user import User
 from app.schemas.booking import BookingCreate
 
 
-def create_booking(db: Session, data: BookingCreate) -> Booking:
-    user = db.query(User).filter(User.id == data.user_id).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User with id {data.user_id} not found",
-        )
-
+def create_booking(db: Session, data: BookingCreate, user: User) -> Booking:
     chef = db.query(Chef).filter(Chef.id == data.chef_id).first()
     if not chef:
         raise HTTPException(
@@ -29,7 +22,7 @@ def create_booking(db: Session, data: BookingCreate) -> Booking:
         )
 
     booking = Booking(
-        user_id=data.user_id,
+        user_id=user.id,
         chef_id=data.chef_id,
         booking_date=data.booking_date,
         meal_slot=data.meal_slot,

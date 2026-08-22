@@ -7,7 +7,6 @@ from app.models.booking import BookingStatus, MealSlot
 
 class BookingCreate(BaseModel):
     chef_id: int
-    user_id: int
     booking_date: date
     meal_slot: MealSlot
     special_requests: str | None = None
