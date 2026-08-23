@@ -11,7 +11,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { Booking, BookingStatus } from '@/types/booking';
 import { getBookings } from '@/services/bookingService';
 import { useBookingStatus } from '@/hooks/useBookingStatus';
-import { STATUS_ORDER } from '@/utils/bookingStatus';
+import { STATUS_ORDER, bookingStatusLabel } from '@/utils/bookingStatus';
 import { formatBookingDate, mealSlotLabel } from '@/utils/bookingDisplay';
 import LoadingScreen from '@/components/LoadingScreen';
 import ErrorMessage from '@/components/ErrorMessage';
@@ -177,7 +177,9 @@ export default function BookingTrackerScreen() {
               displayStatus === 'CONFIRMED' && styles.currentStatusChipConfirmed,
             ]}
           >
-            <Text style={styles.currentStatusText}>{displayStatus}</Text>
+            <Text style={styles.currentStatusText}>
+              {bookingStatusLabel(displayStatus)}
+            </Text>
           </View>
         </Animated.View>
       </View>

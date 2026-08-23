@@ -14,3 +14,13 @@ export function statusAtLeast(current: BookingStatus, minimum: BookingStatus): b
 export function maxStatus(a: BookingStatus, b: BookingStatus): BookingStatus {
   return STATUS_ORDER[a] >= STATUS_ORDER[b] ? a : b;
 }
+
+const STATUS_LABELS: Record<BookingStatus, string> = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  CHEF_EN_ROUTE: 'Chef En Route',
+};
+
+export function bookingStatusLabel(status: BookingStatus): string {
+  return STATUS_LABELS[status];
+}

@@ -5,6 +5,8 @@ import { Colors } from '@/constants/colors';
 import { Typography } from '@/constants/typography';
 import { Spacing, BorderRadius, Shadow } from '@/constants/spacing';
 import { Booking } from '@/types/booking';
+import { useBookingStatus } from '@/hooks/useBookingStatus';
+import { bookingStatusLabel } from '@/utils/bookingStatus';
 import { formatBookingDate, mealSlotLabel } from '@/utils/bookingDisplay';
 
 interface BookingCardProps {
@@ -33,7 +35,8 @@ function statusChipStyle(status: Booking['status']) {
 }
 
 export default function BookingCard({ booking, onPress }: BookingCardProps) {
-  const chip = statusChipStyle(booking.status);
+  const resolvedStatus = useBookingStatus(booking) ?? booking.status;
+  const chip = statusChipStyle(resolvedStatus);
 
   return (
     <Pressable
@@ -61,7 +64,9 @@ export default function BookingCard({ booking, onPress }: BookingCardProps) {
       <View style={[styles.bottomRow, styles.divider]}>
         <Text style={styles.bookingId}>#{booking.id}</Text>
         <View style={[styles.statusChip, chip.container]}>
-          <Text style={[styles.statusChipLabel, chip.label]}>{booking.status}</Text>
+          <Text style={[styles.statusChipLabel, chip.label]}>
+            {bookingStatusLabel(resolvedStatus)}
+          </Text>
         </View>
       </View>
     </Pressable>
