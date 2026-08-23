@@ -25,6 +25,7 @@ function RootNavigator() {
     >
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="chef/[id]" />
+      <Stack.Screen name="booking/[id]" />
       <Stack.Screen name="(auth)" />
     </Stack>
   );

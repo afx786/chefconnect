@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -27,6 +28,18 @@ class BookingCreate(BaseModel):
         return v or None
 
 
+class BookingChefOut(BaseModel):
+    id: int
+    name: str
+    cuisine: str
+    locality: str
+    rating: Decimal
+    price_per_meal: Decimal
+    signature_dish: str
+
+    model_config = {"from_attributes": True}
+
+
 class BookingOut(BaseModel):
     id: int
     user_id: int
@@ -37,5 +50,10 @@ class BookingOut(BaseModel):
     special_requests: str | None
     created_at: datetime
     updated_at: datetime
+    chef: BookingChefOut
 
     model_config = {"from_attributes": True}
+
+
+class BookingListResponse(BaseModel):
+    bookings: list[BookingOut]

@@ -5,10 +5,18 @@ from app.api.deps import get_current_user
 from app.core.rate_limit import booking_limiter
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.booking import BookingCreate, BookingOut
-from app.services.booking_service import create_booking
+from app.schemas.booking import BookingCreate, BookingListResponse, BookingOut
+from app.services.booking_service import create_booking, get_user_bookings
 
 router = APIRouter()
+
+
+@router.get("", response_model=BookingListResponse)
+def list_my_bookings(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BookingListResponse:
+    return BookingListResponse(bookings=get_user_bookings(db, current_user))
 
 
 @router.post(

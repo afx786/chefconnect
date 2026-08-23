@@ -9,6 +9,16 @@ export interface BookingCreate {
   special_requests?: string | null;
 }
 
+export interface BookingChef {
+  id: number;
+  name: string;
+  cuisine: string;
+  locality: string;
+  rating: number;
+  price_per_meal: number;
+  signature_dish: string;
+}
+
 export interface Booking {
   id: number;
   user_id: number;
@@ -19,4 +29,9 @@ export interface Booking {
   special_requests: string | null;
   created_at: string;
   updated_at: string;
+  chef: BookingChef;
+}
+
+export interface BookingListResponse {
+  bookings: Booking[];
 }

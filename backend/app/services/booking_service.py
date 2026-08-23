@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.booking import Booking, BookingStatus
 from app.models.chef import Chef
@@ -34,3 +35,13 @@ def create_booking(db: Session, data: BookingCreate, user: User) -> Booking:
     db.commit()
     db.refresh(booking)
     return booking
+
+
+def get_user_bookings(db: Session, user: User) -> list[Booking]:
+    stmt = (
+        select(Booking)
+        .where(Booking.user_id == user.id)
+        .options(selectinload(Booking.chef))
+        .order_by(Booking.created_at.desc(), Booking.id.desc())
+    )
+    return list(db.scalars(stmt).all())
