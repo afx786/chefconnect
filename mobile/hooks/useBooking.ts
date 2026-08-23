@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Booking, BookingCreate } from '@/types/booking';
 import { createBooking } from '@/services/bookingService';
+import { normalizeApiError } from '@/utils/apiErrors';
 
 export function useBooking() {
   const [loading, setLoading] = useState(false);
@@ -15,10 +16,8 @@ export function useBooking() {
       const booking = await createBooking(payload);
       setSuccess(booking);
       return booking;
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.detail || e?.message || 'Booking failed';
-      setError(msg);
+    } catch (e: unknown) {
+      setError(normalizeApiError(e));
       return null;
     } finally {
       setLoading(false);

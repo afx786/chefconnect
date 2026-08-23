@@ -18,7 +18,7 @@ import { Spacing, BorderRadius } from '@/constants/spacing';
 import { Chef } from '@/types/chef';
 import { MealSlot } from '@/types/booking';
 import { useBooking } from '@/hooks/useBooking';
-import { formatDate } from '@/utils/formatDate';
+import { formatDate, toLocalISODate } from '@/utils/formatDate';
 import Button from './Button';
 import BookingStatus from './BookingStatus';
 
@@ -51,7 +51,7 @@ export default function BookingModal({ visible, chef, onClose }: BookingModalPro
 
   const handleSubmit = async () => {
     if (!chef) return;
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = toLocalISODate(date);
     await submit({
       chef_id: chef.id,
       booking_date: dateStr,
@@ -85,7 +85,7 @@ export default function BookingModal({ visible, chef, onClose }: BookingModalPro
                   onPress={() => setShowDatePicker(true)}
                 >
                   <MaterialIcons name="calendar-today" size={18} color={Colors.onSurfaceVariant} />
-                  <Text style={styles.dateText}>{formatDate(date.toISOString().split('T')[0])}</Text>
+                  <Text style={styles.dateText}>{formatDate(toLocalISODate(date))}</Text>
                 </TouchableOpacity>
                 {showDatePicker && (
                   <DateTimePicker

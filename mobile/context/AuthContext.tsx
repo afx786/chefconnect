@@ -3,6 +3,7 @@ import { User } from '@/types/auth';
 import { getToken, removeToken } from '@/services/tokenStorage';
 import { setOnSessionExpired } from '@/services/api';
 import { login as apiLogin, signup as apiSignup } from '@/services/authService';
+import { normalizeApiError } from '@/utils/apiErrors';
 import { LoginRequest, SignupRequest } from '@/types/auth';
 
 interface AuthContextType {
@@ -59,8 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setUser({ id: Number(payload.sub), name: '', email: data.email });
       }
-    } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || 'Login failed';
+    } catch (e: unknown) {
+      const msg = normalizeApiError(e);
       setError(msg);
       throw new Error(msg);
     } finally {
@@ -73,8 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       await apiSignup(data);
-    } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || 'Signup failed';
+    } catch (e: unknown) {
+      const msg = normalizeApiError(e);
       setError(msg);
       throw new Error(msg);
     } finally {
