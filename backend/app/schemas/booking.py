@@ -1,15 +1,30 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from app.models.booking import BookingStatus, MealSlot
 
 
 class BookingCreate(BaseModel):
-    chef_id: int
+    chef_id: int = Field(gt=0)
     booking_date: date
     meal_slot: MealSlot
-    special_requests: str | None = None
+    special_requests: str | None = Field(default=None, max_length=500)
+
+    @field_validator("booking_date")
+    @classmethod
+    def reject_past_dates(cls, v: date) -> date:
+        if v < date.today():
+            raise ValueError("booking_date cannot be in the past")
+        return v
+
+    @field_validator("special_requests")
+    @classmethod
+    def normalize_special_requests(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
 
 
 class BookingOut(BaseModel):

@@ -1,15 +1,18 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class SignupRequest(BaseModel):
-    name: str
-    email: EmailStr
+    name: str = Field(max_length=100)
+    email: EmailStr = Field(max_length=254)
     password: str
 
     @field_validator("name")
     @classmethod
     def normalize_name(cls, v: str) -> str:
-        return v.strip()
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be blank")
+        return v
 
     @field_validator("email")
     @classmethod
