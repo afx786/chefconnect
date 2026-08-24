@@ -34,6 +34,10 @@ class Settings(BaseSettings):
 
     CHEFS_CACHE_TTL_SECONDS: int = 60
 
+    N8N_BOOKING_CONFIRMED_WEBHOOK_URL: str = ""
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+
     @model_validator(mode="after")
     def reject_insecure_production_secrets(self) -> "Settings":
         if self.ENVIRONMENT == "production":
