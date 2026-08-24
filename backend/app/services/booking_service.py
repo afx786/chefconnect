@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -7,6 +9,8 @@ from app.models.chef import Chef
 from app.models.user import User
 from app.schemas.booking import BookingCreate
 from app.services.webhook_service import emit_booking_confirmed
+
+logger = logging.getLogger(__name__)
 
 
 def create_booking(db: Session, data: BookingCreate, user: User) -> Booking:
@@ -61,6 +65,10 @@ def confirm_booking(db: Session, booking: Booking, user: User) -> Booking:
         )
 
     should_emit = not booking.confirmed_event_emitted
+    logger.info(
+        "CONFIRM_TRACE booking=%d status=%s already_emitted=%s should_emit=%s",
+        booking.id, booking.status.value, booking.confirmed_event_emitted, should_emit,
+    )
     booking.status = BookingStatus.CONFIRMED
     booking.confirmed_event_emitted = True
     db.commit()
