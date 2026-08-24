@@ -1,81 +1,90 @@
 # ChefConnect
 
-ChefConnect is a platform for booking private chefs. Users can browse available chefs, view menus and pricing, filter by cuisine and locality, and submit bookings for home dining experiences.
+A mini on-demand home chef booking application. Users sign up, browse available chefs by cuisine and locality, book a chef for a home dining experience, and receive a confirmation email when the booking is confirmed.
 
-## Technology Stack
+**Core user flow:** Signup/Login → Browse Chefs → Select Chef → Create Booking → Booking Tracker → Booking Confirmed → Confirmation Email
+
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Mobile | React Native + Expo SDK 52, Expo Router, TypeScript |
-| Backend | Python, FastAPI, Uvicorn |
-| Database | PostgreSQL 18 |
-| ORM | SQLAlchemy 2.0 (async), Alembic |
+| Mobile | React Native, Expo SDK 52, Expo Router, TypeScript |
+| Backend | Python 3.13, FastAPI, Uvicorn, SQLAlchemy 2.0 |
+| Database | PostgreSQL (Neon) |
+| Cache | Redis |
+| Auth | JWT (PyJWT), bcrypt password hashing |
+| Workflow | n8n (self-hosted) |
+| Email | Resend |
+| Deployment | Railway (backend, Redis, n8n), Neon (database) |
+| Testing | Pytest (backend), TypeScript strict mode (mobile) |
 
-## Project Structure
+## Architecture
 
 ```
-chefconnect/
-├── mobile/          React Native + Expo mobile application
-│   ├── app/             Expo Router screens and layouts
-│   ├── components/      Reusable UI components
-│   ├── constants/       Design tokens (colors, typography, spacing)
-│   ├── context/         React context (auth placeholder)
-│   ├── hooks/           Custom hooks (useChefs, useBooking)
-│   ├── services/        API client and service functions
-│   ├── types/           TypeScript type definitions
-│   └── utils/           Utility functions (formatDate, formatCurrency)
-├── backend/         FastAPI backend
-│   ├── app/
-│   │   ├── api/routes/  API route handlers
-│   │   ├── models/      SQLAlchemy models
-│   │   ├── schemas/     Pydantic request/response schemas
-│   │   └── services/    Business logic
-│   ├── alembic/         Database migrations
-│   └── tests/           Pytest test suite
-└── n8n/             n8n workflow automations (deferred)
+Android App (React Native / Expo)
+        │ HTTPS
+        ▼
+Railway FastAPI Backend
+        │
+        ├──► Neon PostgreSQL    (persistent data)
+        │
+        ├──► Redis (Railway)    (caching + rate limiting)
+        │
+        └──► n8n Webhook        (booking.confirmed event)
+                │
+                ▼
+            Resend API
+                │
+                ▼
+        Confirmation Email
 ```
 
-## MVP 1 — Completed
+**Component responsibilities:**
+
+- **Android App** — User-facing interface for browsing chefs, creating bookings, and tracking status. Connects to the production API over HTTPS.
+- **FastAPI Backend** — REST API handling authentication, chef listing, booking CRUD, and webhook emission. Runs on Railway via `uvicorn`.
+- **Neon PostgreSQL** — Persistent storage for users, chefs, dishes, and bookings. Serverless PostgreSQL with SSL connections.
+- **Redis** — In-memory store used for GET `/api/chefs` response caching (60s TTL) and fixed-window rate limiting on all endpoints.
+- **n8n** — Workflow automation platform. Receives `booking.confirmed` webhooks from the backend, validates the event, and calls Resend to send confirmation emails.
+- **Resend** — Transactional email service. Sends styled HTML confirmation emails to users when their booking is confirmed.
+
+## MVP 1 — Database Architecture & Core Booking Flow
 
 MVP 1 delivers a functional end-to-end flow: browsing chefs on a mobile app, filtering by cuisine and locality, viewing chef details and menus, and submitting bookings that persist to PostgreSQL.
 
-### Database
+### Database Schema
 
-- PostgreSQL 18 with SQLAlchemy 2.0 async ORM
-- **Users** — id, name, email, phone, location
-- **Chefs** — id, name, cuisine, locality, experience, bio, rating, pricing, availability
-- **Dishes** — id, name, description, price, signature flag, linked to chefs
-- **Bookings** — id, user, chef, date, meal slot, special requests, status (PENDING)
-- Relationships: Users → Bookings, Chefs → Bookings, Chefs → Dishes
-- Seed data: 11 chefs, 33 dishes, 11 users, 11 bookings
+5 tables with SQLAlchemy 2.0 ORM:
+
+| Table | Key Columns |
+|-------|-------------|
+| **users** | id, name, email (unique), password_hash, created_at |
+| **chefs** | id, name, cuisine, locality, rating, price_per_meal, signature_dish, experience_years, bio, is_available |
+| **dishes** | id, chef_id (FK), name, description, price, is_available |
+| **bookings** | id, user_id (FK), chef_id (FK), booking_date, meal_slot (enum), status (enum), special_requests, confirmed_event_emitted, created_at, updated_at |
+
+Enums: `MealSlot` (BREAKFAST, LUNCH, DINNER), `BookingStatus` (PENDING, CONFIRMED, CHEF_EN_ROUTE)
+
+Relationships: Users → Bookings, Chefs → Bookings, Chefs → Dishes (cascade delete)
+
+### Seed Data
+
+11 chefs across Indian regional cuisines (Indian, Punjabi, South Indian, Continental, Kerala, Bengali, Mughlai, Maharashtrian, Awadhi, Asian Fusion, Hyderabadi), 33 dishes (3 per chef), 11 users, and 11 bookings with varied statuses.
 
 ### Backend APIs
 
-**GET `/api/chefs`**
-- Returns all available chefs with dishes and menu data
-- Optional `cuisine` filter (case-insensitive)
-- Optional `locality` filter (case-insensitive)
-- Eager-loads dishes for each chef
-- Returns paginated chef list with full details
+**GET `/api/chefs`** — Returns all available chefs with nested dishes. Optional `cuisine` and `locality` query filters (case-insensitive). Results cached in Redis.
 
-**POST `/api/bookings`**
-- Accepts: chef_id, user_id, booking_date, meal_slot, optional special_requests
-- Validates user existence, chef existence, and chef availability
-- Validates meal slot (BREAKFAST, LUNCH, DINNER)
-- Server-controlled initial status: PENDING
-- Persists to PostgreSQL and returns the created booking
+**POST `/api/bookings`** — Creates a booking. Accepts `chef_id`, `booking_date`, `meal_slot`, optional `special_requests`. Requires JWT. User identity derived from token, not request body. Server sets initial status to PENDING.
 
 ### Mobile Application
 
-- **Expo Router** file-based navigation
-- **Explore screen** — chef listing with loading skeleton, error retry, and empty-results states
-- **Chef detail screen** — hero image, stats, bio, signature dish, full menu, pricing
-- **Filter bar** — cuisine and locality chip filters
-- **Booking modal** — bottom sheet with date picker, meal slot selection, special requests
-- **Booking success/error states** — confirmation display with booking details
-- **Bottom navigation** — Explore, Bookings, Profile tabs
-- **Animations** — card staggered entrance, button press feedback, modal slide transition
-- **Design system** — Material Design 3-inspired tokens (colors, typography, spacing, shadows)
+- **Expo Router** file-based navigation with bottom tab bar (Explore, Bookings, Profile)
+- **Explore screen** — Chef listing with cuisine/locality chip filters, loading skeleton, error retry, empty states
+- **Chef detail screen** — Hero card, stats row, bio, signature dish, full menu, sticky "Book Chef" footer
+- **Booking modal** — Bottom sheet with native date picker, meal slot selector, special requests input
+- **Booking success** — Confirmation card displayed in-modal, then navigates to Booking Tracker
+- **Design system** — Material Design 3-inspired tokens (warm brown/terracotta primary, 8-level surface hierarchy, HankenGrotesk typography)
 
 ### Testing
 
@@ -85,229 +94,484 @@ MVP 1 delivers a functional end-to-end flow: browsing chefs on a mobile app, fil
 | Chef API | 6 | Passed |
 | Booking API | 8 | Passed |
 | **Total backend** | **20** | **All passed** |
-| TypeScript check | — | Clean |
-| Metro Android bundle | — | Successful |
 
-### Physical Device Verification
+## MVP 2 — Security, Status Tracking & Android
 
-The mobile application was tested on a real Android device connected via USB using ADB.
+MVP 2 delivered authentication, security hardening, and booking state tracking across the backend and mobile app.
 
-- Expo Go SDK 52 used for runtime
-- ADB reverse tunneling for development server connection
-- Full stack verified: **Android Phone → React Native/Expo → FastAPI → PostgreSQL**
-- A booking was submitted from the physical device and confirmed persisted in PostgreSQL
+### JWT Authentication
 
-### MVP 1 Status
+- bcrypt password hashing (cost factor 12)
+- `POST /api/auth/signup` — Register with name, email, password. Validates input, normalizes email, hashes password.
+- `POST /api/auth/login` — Authenticate with email/password. Returns JWT access token (HS256, configurable expiry).
+- `get_current_user` dependency — Extracts Bearer token, decodes JWT, looks up user. Returns 401 for missing/invalid/expired tokens.
+- Environment-based `JWT_SECRET_KEY` with production validation (rejects default dev key).
 
-**COMPLETED**
+### Protected Routes
 
----
-
-## MVP 2 — Completed
-
-MVP 2 delivered authentication, security hardening, and booking state/status tracking across the backend and mobile app.
-
-### Step A — JWT Authentication Foundation
-
-- bcrypt password hashing
-- Signup endpoint (`POST /api/auth/signup`)
-- Login endpoint (`POST /api/auth/login`)
-- JWT access-token generation and verification
-- Configurable JWT expiration
-- Environment-based JWT secret
-- Authentication schemas and service
-- `get_current_user` dependency
-
-Commit: `ac979e9` — JWT auth foundation setup
-
-### Step B — Securing API Routes
-
-- `POST /api/bookings` requires JWT authentication (`Authorization: Bearer <JWT>`)
-- `user_id` removed from booking creation requests; identity derived exclusively from the JWT
-- Protection against user impersonation
+- `POST /api/bookings` and `POST /api/bookings/{id}/confirm` require JWT authentication
+- User identity derived exclusively from the JWT — `user_id` is not accepted in request bodies, preventing impersonation
 - `GET /api/chefs`, signup, and login remain public
 
-Commit: `8b77df5` — securing api routes and setting up auth headers
+### Input Validation & Sanitization
 
-### Step C — Mobile Authentication
+- Name validation (1-100 chars, no blank), email normalization (lowercase, trimmed), password constraints (8-128 chars)
+- Cuisine/locality filters (stripped, truncated to 100 chars)
+- Booking date rejection (past dates), meal slot enum validation, special requests (max 500 chars, stripped)
+- SQLAlchemy parameterized queries throughout
 
-- React Native authentication flow (signup UI, login UI)
-- Expo SecureStore for JWT storage
-- AuthContext with authentication state restoration and logout
-- Axios Authorization interceptor
-- 401 session-expiration handling
-- Public Explore experience; authentication required when attempting to book
-- Unauthenticated Book Chef → Login → return-to-booking flow
+### Rate Limiting
 
-Commits:
-- `7ef55da` — integrating auth in mobile ui
-- `d051b98` — fix mobile auth state and public explore
-- `7f6e884` — fix unauthenticated booking navigation
+Redis-backed fixed-window rate limiting with per-endpoint configuration:
 
-Physical-device testing was performed during this phase.
+| Scope | Limit | Window | Failure Mode |
+|-------|-------|--------|-------------|
+| Auth (signup/login) | 5 req | 60s | Fail-closed (503 if Redis down) |
+| Chef listing | 60 req | 60s | Fail-open |
+| Booking actions | 10 req | 60s | Fail-open |
 
-### Step D — Security Hardening
+Response headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`
 
-Input validation and normalization:
+### Booking Tracker & Status Flow
 
-- Name validation, email normalization, password constraints
-- Cuisine/locality, chef_id, booking date, meal slot, and special-request validation
-- SQLAlchemy parameterized queries
+- `GET /api/bookings` — JWT-protected, returns user-specific bookings with chef data, ordered by newest first
+- Mobile Bookings screen with booking cards and live status chips
+- Booking Tracker screen with vertical timeline (PENDING → CONFIRMED → CHEF_EN_ROUTE)
+- **Simulated progression** based on `booking.created_at`:
+  - 0–9 seconds: PENDING
+  - 10–19 seconds: CONFIRMED
+  - 20+ seconds: CHEF_EN_ROUTE
+- Backend persisted status acts as a floor — simulation never regresses below it
+- Status-source abstraction (`BookingStatusSource` interface) allows swapping simulation for real-time implementation later
 
-Redis-backed rate limiting:
+### Android Testing
 
-- Authentication, booking, and chef-listing endpoints
-- Fixed-window Redis counters with `Retry-After` and rate-limit headers
-- Fail-closed behavior for authentication endpoints; fail-open for non-critical endpoints
+- Physical Android device testing via USB + ADB reverse tunneling
+- Expo Go SDK 52 for runtime
+- Full stack verified: Android Phone → React Native/Expo → FastAPI → PostgreSQL
 
-Environment/security hardening:
-
-- Environment-based configuration
-- JWT production secret validation
-- Redis and rate-limit configuration
-- `.env` protection
-- Docker Compose Redis/PostgreSQL infrastructure
-
-Commit: `a42b884` — sanitizing input and adding rate limiting capabilities
-
-Verification: **81/81 tests passed** after Step D.
-
-### State & Status Tracking
-
-- `GET /api/bookings` — JWT-protected retrieval with user-specific booking isolation
-- Booking response includes chef information via efficient relationship loading
-- Mobile Bookings screen with booking cards
-- Booking Tracker screen with status timeline
-- Simulated progression: PENDING → CONFIRMED → CHEF_EN_ROUTE
-- Deterministic simulation based on `booking.created_at`; persisted backend status acts as the floor
-- Shared status-resolution architecture; status stays consistent between the Booking Card and the Booking Tracker
-- Animation/transition support and loading/error/empty states
-
-Architecture notes:
-
-- The backend remains the authority for persisted booking status.
-- The current mobile simulation is presentation/demo state.
-- The tracker uses a status-source abstraction so the simulated implementation can later be replaced by a real-time implementation.
-- Real-time infrastructure has NOT been implemented yet.
-
-Commits:
-
-- `5a350b7` — booking tracker and status simulation added
-- `54ad534` — fix booking validation error rendering
-- `0f28e4b` — sync booking card status with tracker
-
-Additional physical-device debugging/fixes included:
-
-- Local-date handling for booking dates
-- Centralized API error normalization
-- Unauthenticated booking navigation fixes
-- Stale JWT/session handling
-- Bookings endpoint verification after restarting stale Uvicorn process
-
-Booking creation and the tracker flow were manually verified on the physical Android device.
-
-### MVP 2 Verification
+### Testing
 
 | Area | Tests | Status |
 |------|-------|--------|
 | Backend suite (final) | 92 | All passed |
 | TypeScript check | — | Clean |
-| Metro Android bundle | — | Successful |
 
-### Release Artifact Note
+## MVP 3 — Cloud Infrastructure, Caching & Automation
 
-Release APK / production distribution remains part of the MVP 3 completion flow after the backend is deployed.
+### Production Deployment
 
-### MVP 2 Status
+| Component | Platform | Details |
+|-----------|----------|---------|
+| Backend | Railway | FastAPI + Uvicorn, auto-deploys from `main` branch |
+| Database | Neon | Serverless PostgreSQL, SSL connections (`sslmode=require`) |
+| Redis | Railway | Single instance, caching + rate limiting |
+| n8n | Railway | Self-hosted workflow automation (pinned to v2.13.4) |
+| Mobile | Android | Points to production HTTPS API |
 
-**COMPLETED**
+**Production API base URL:** `https://web-production-6da3e.up.railway.app`
 
----
+**Swagger/OpenAPI docs:** Available at `https://web-production-6da3e.up.railway.app/docs`
 
-## Roadmap
+### Redis Caching
 
-```
-MVP 1
-Database + Backend APIs + Mobile UI
-        ↓
-     COMPLETED
+Cached endpoint: **GET `/api/chefs`**
 
-MVP 2
-Authentication + Security + Booking Tracking
-        ↓
-     COMPLETED
+| Property | Value |
+|----------|-------|
+| Key format | `cache:chefs:cuisine=<encoded>&locality=<encoded>` or `cache:chefs:all` |
+| TTL | 60 seconds (configurable via `CHEFS_CACHE_TTL_SECONDS`) |
+| Strategy | Cache-aside (check cache → miss → query DB → populate cache) |
+| Fail-open | Redis errors silently fall through to database queries |
+| Invalidation | TTL-based only (passive expiration) |
 
-MVP 3
-Redis Caching
-        ↓
-n8n + Resend
-        ↓
-Cloud Deployment + HTTPS
-        ↓
-Mobile → Production API
-        ↓
-Final Android APK
-        ↓
-  MVP 3 COMPLETE
-```
+Each unique combination of cuisine/locality filters gets its own cache key. Filter values are URL-encoded and normalized (stripped, truncated to 100 chars). Setting TTL to 0 disables caching entirely.
 
----
+### n8n Workflow — Booking Confirmation Email
 
-## MVP 3 — Cloud Infrastructure, Caching & Workflow Automation (Planned)
-
-All items below are planned future work. None of them are implemented yet.
-
-### MVP 3 — Step 1: Redis Performance Caching
-
-Implement Redis caching for `GET /api/chefs` to reduce repeated PostgreSQL reads for the high-frequency chef discovery endpoint. This builds on the Redis infrastructure already introduced for rate limiting — Redis rate limiting already exists; MVP 3 adds application caching on top of it.
-
-### MVP 3 — Step 2: Workflow Automation / Notifications
-
-Set up booking confirmation automation using n8n + Resend.
-
-Planned flow:
+The `booking-confirmation` workflow is a 4-node pipeline that sends confirmation emails when bookings are confirmed:
 
 ```
-Booking status transition
-        ↓
-     Confirmed
-        ↓
-Trigger webhook/workflow
-        ↓
-       n8n
-        ↓
-      Resend
-        ↓
-Email/notification confirmation
+Webhook (POST /webhook/booking-confirmed)
+        │
+        ▼
+Validate Event (IF node: event == "booking.confirmed")
+        │
+   ┌────┴────┐
+   ▼         ▼
+Resend     Ignore Other Events (NoOp)
 ```
 
-The notification should be triggered by an actual transition to CONFIRMED rather than repeatedly sending notifications whenever the booking is read.
+| Node | Type | Purpose |
+|------|------|---------|
+| **Webhook** | Webhook (v2) | Receives POST from FastAPI. Responds immediately (`onReceived`). |
+| **Validate Event** | IF (v2) | Checks `$json.body.event == "booking.confirmed"`. Routes matching events to Resend. |
+| **Resend** | HTTP Request (v4) | POSTs to `https://api.resend.com/emails` with styled HTML confirmation. |
+| **Ignore Other Events** | NoOp | Sink for unmatched event types. Prevents errors. |
 
-### MVP 3 — Step 3: Cloud Deployment & Security
+The workflow reacts specifically to `booking.confirmed` events. All other event types are silently dropped.
 
-Deploy the FastAPI backend, PostgreSQL database, and Redis to a live cloud environment such as Render, Railway, or AWS. Production configuration will include secure environment variables, a production JWT secret, DATABASE_URL, REDIS_URL, rate-limit configuration, notification service credentials, and HTTPS.
-
-### MVP 3 — Step 4: Connect Mobile App to Production Backend
-
-After the backend is deployed, change the mobile API base URL from the local development backend (current USB/local testing configuration) to the production HTTPS backend URL.
-
-Planned production flow:
+### End-to-End Production Workflow
 
 ```
-HTTPS production API
-        ↓
-      FastAPI
-        ↓
-PostgreSQL + Redis
-        ↓
-n8n / Resend workflow
+POST /api/bookings
+    │
+    ▼
+Booking created as PENDING
+    │
+    ▼
+Booking Tracker: PENDING → CONFIRMED (simulated, 10s)
+    │
+    ▼
+POST /api/bookings/{id}/confirm
+    │
+    ▼
+Backend sets status=CONFIRMED, confirmed_event_emitted=True
+    │
+    ▼
+Backend POSTs booking.confirmed webhook to n8n
+    │
+    ▼
+n8n Validate Event node checks event == "booking.confirmed"
+    │
+    ▼
+Resend sends confirmation email to user
+    │
+    ▼
+User receives email
 ```
 
-### MVP 3 — Step 5: Final Android Release APK
+Key design decisions:
+- `confirmed_event_emitted` boolean on the Booking model prevents duplicate webhook emissions
+- Webhook is fire-and-forget — failures are logged but never block the API response
+- If n8n or Resend is unavailable, the booking still transitions to CONFIRMED in the database
+- The webhook URL is configured via `N8N_BOOKING_CONFIRMED_WEBHOOK_URL` environment variable
 
-Only AFTER the production backend is deployed and the mobile API URL points to the production HTTPS backend:
+### Email Template
 
-- Generate the final Android APK and install it on a physical Android device
-- Test the complete production-backed flow: authentication, chef discovery, booking, booking retrieval, status tracker, caching behavior, booking confirmation workflow, and notification flow
+The Resend email includes:
+- User name and chef name
+- Booking date and meal slot
+- Booking ID and status
+- Styled HTML with inline CSS
 
-Generating the final APK at this point avoids creating a temporary APK pointing to localhost. The final APK will be the distributable release artifact.
+### Testing
+
+| Area | Tests | Status |
+|------|-------|--------|
+| Backend suite | 121 | All passed |
+| TypeScript check | — | Clean |
+
+## API Documentation
+
+**Base URL (Production):** `https://web-production-6da3e.up.railway.app`
+
+**Interactive docs:** `https://web-production-6da3e.up.railway.app/docs` (Swagger UI)
+
+### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/api/auth/signup` | No | Register a new user |
+| `POST` | `/api/auth/login` | No | Authenticate and receive JWT |
+| `GET` | `/api/chefs` | No | List available chefs (cached, filterable) |
+| `POST` | `/api/bookings` | JWT | Create a new booking |
+| `GET` | `/api/bookings` | JWT | List current user's bookings |
+| `POST` | `/api/bookings/{id}/confirm` | JWT | Confirm a pending booking |
+
+#### POST `/api/auth/signup`
+
+```
+Request:  { "name": "string", "email": "string", "password": "string" }
+Response: { "id": 1, "name": "string", "email": "string" }  (201)
+```
+
+#### POST `/api/auth/login`
+
+```
+Request:  { "email": "string", "password": "string" }
+Response: { "access_token": "string", "token_type": "bearer" }
+```
+
+#### GET `/api/chefs`
+
+Query params: `cuisine` (optional), `locality` (optional)
+
+```
+Response: { "chefs": [{ "id": 1, "name": "...", "cuisine": "...", "dishes": [...] }] }
+```
+
+#### POST `/api/bookings`
+
+Headers: `Authorization: Bearer <JWT>`
+
+```
+Request:  { "chef_id": 1, "booking_date": "2026-08-25", "meal_slot": "DINNER", "special_requests": "..." }
+Response: { "id": 1, "status": "PENDING", "chef": {...}, ... }  (201)
+```
+
+#### GET `/api/bookings`
+
+Headers: `Authorization: Bearer <JWT>`
+
+```
+Response: { "bookings": [{ "id": 1, "status": "PENDING", "chef": {...}, ... }] }
+```
+
+#### POST `/api/bookings/{id}/confirm`
+
+Headers: `Authorization: Bearer <JWT>`
+
+```
+Response: { "id": 1, "status": "CONFIRMED", ... }
+```
+
+## Security
+
+| Measure | Implementation |
+|---------|---------------|
+| Password hashing | bcrypt (cost factor 12) |
+| Authentication | JWT Bearer tokens (HS256) |
+| Authorization | `get_current_user` dependency, user-scoped booking operations |
+| Impersonation prevention | `user_id` derived from JWT only, not from request body |
+| Rate limiting | Fixed-window Redis counters with per-endpoint configuration |
+| Fail-closed auth | Auth rate limiting returns 503 if Redis is unavailable |
+| Input validation | Pydantic schemas with validators, string normalization, length limits |
+| Parameterized queries | SQLAlchemy ORM throughout (no raw SQL injection vectors) |
+| Environment secrets | JWT_SECRET_KEY, DATABASE_URL, REDIS_URL, RESEND_API_KEY stored as env vars |
+| Production key validation | App refuses to start if JWT_SECRET_KEY equals default dev value |
+| HTTPS | Production Railway deployment with TLS |
+| Database SSL | `sslmode=require` injected for PostgreSQL connections |
+| Token storage | Expo SecureStore on mobile (encrypted keychain/keystore) |
+| Session expiry | 401 responses clear stored token and null user state |
+
+## Project Structure
+
+```
+chefconnect/
+├── mobile/                    React Native + Expo mobile application
+│   ├── app/
+│   │   ├── (auth)/            Login, signup screens
+│   │   ├── (tabs)/            Explore, Bookings, Profile tabs
+│   │   ├── booking/[id].tsx   Booking Tracker (timeline + live status)
+│   │   └── chef/[id].tsx      Chef Detail (profile, menu, book CTA)
+│   ├── components/            10 reusable UI components
+│   ├── constants/             Design tokens (colors, typography, spacing)
+│   ├── context/               AuthContext (JWT state, login/logout)
+│   ├── hooks/                 useAuth, useChefs, useBooking, useBookingStatus
+│   ├── services/              API client, authService, bookingService, chefService
+│   ├── types/                 TypeScript type definitions
+│   └── utils/                 Formatting, error normalization, status logic
+├── backend/                   FastAPI backend
+│   ├── app/
+│   │   ├── api/routes/        auth.py, chefs.py, bookings.py
+│   │   ├── cache/             Redis client, chef list caching
+│   │   ├── core/              config, rate limiting
+│   │   ├── db/                SQLAlchemy engine, session, init
+│   │   ├── models/            User, Chef, Dish, Booking
+│   │   ├── schemas/           Pydantic request/response schemas
+│   │   ├── seed/              Database seeder (11 chefs, 33 dishes)
+│   │   └── services/          auth, chef, booking, webhook services
+│   ├── tests/                 121 Pytest tests
+│   └── requirements.txt       Python dependencies
+├── n8n/
+│   ├── README.md              Setup documentation
+│   └── workflows/
+│       └── booking-confirmation.json   4-node workflow
+├── docker-compose.yml         Local PostgreSQL + Redis
+├── Procfile                   Railway deployment config
+└── README.md
+```
+
+## Local Development
+
+### Prerequisites
+
+- Python 3.13+
+- Node.js 18+
+- Docker (for PostgreSQL and Redis)
+
+### Backend Setup
+
+```bash
+# Start infrastructure
+docker compose up -d
+
+# Install dependencies
+cd backend
+pip install -r requirements.txt
+
+# Initialize and seed database
+python -m app.db.init_db
+
+# Run the server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The API will be available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+
+### Mobile Setup
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+To point at local backend, update `mobile/constants/config.ts`:
+
+```typescript
+export const API_BASE_URL = 'http://10.0.2.2:8000';
+```
+
+For physical Android device via USB:
+
+```bash
+adb reverse tcp:8000 tcp:8000
+adb reverse tcp:8081 tcp:8081
+```
+
+### Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | `postgresql+psycopg://postgres:changeme@localhost:5432/chefconnect` | PostgreSQL connection URL |
+| `REDIS_URL` | Yes | `redis://localhost:6379/0` | Redis connection URL |
+| `JWT_SECRET_KEY` | Yes | dev default (rejected in production) | JWT signing secret (min 32 chars) |
+| `ENVIRONMENT` | No | `development` | Set to `production` for deployment |
+| `N8N_BOOKING_CONFIRMED_WEBHOOK_URL` | No | `""` | n8n webhook URL for booking confirmations |
+| `RESEND_API_KEY` | No | `""` | Resend API key (used by n8n, not backend directly) |
+| `RESEND_FROM_EMAIL` | No | `onboarding@resend.dev` | Sender address for Resend emails |
+| `RATE_LIMIT_ENABLED` | No | `True` | Enable/disable rate limiting |
+| `CHEFS_CACHE_TTL_SECONDS` | No | `60` | Chef list cache TTL (0 to disable) |
+
+## Production Deployment
+
+| Component | Platform | Config |
+|-----------|----------|--------|
+| Backend | Railway | `Procfile` → `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Database | Neon | Serverless PostgreSQL with connection pooling |
+| Redis | Railway | Single instance for caching + rate limiting |
+| n8n | Railway | Self-hosted, pinned to v2.13.4 |
+| Mobile | Android | API base URL points to Railway HTTPS endpoint |
+
+**Railway services:**
+
+| Service | URL |
+|---------|-----|
+| Backend API | `https://web-production-6da3e.up.railway.app` |
+| n8n | `https://n8n-production-6ab1.up.railway.app` |
+
+Backend auto-deploys from `main` branch. On startup: initializes database tables, seeds chef data, logs webhook configuration status.
+
+## Testing / Verification
+
+### Backend Tests
+
+```bash
+cd backend
+python -m pytest
+```
+
+**121 tests** across 10 test files:
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| test_auth.py | 23 | Password hashing, JWT, signup/login, validation |
+| test_bookings.py | 17 | Creation, validation, auth, chef checks |
+| test_bookings_list.py | 11 | Listing, user isolation, ordering |
+| test_booking_confirm.py | 16 | Confirmation, idempotency, webhook emission |
+| test_chefs.py | 6 | Listing, filtering |
+| test_chefs_cache.py | 13 | Cache hit/miss, TTL, fail-open, normalization |
+| test_database.py | 6 | Schema, relationships, seed data |
+| test_rate_limit.py | 12 | Per-scope limits, headers, fail-closed/open |
+| test_validation.py | 17 | Input constraints, sanitization |
+
+### TypeScript Check
+
+```bash
+cd mobile
+npx tsc --noEmit
+```
+
+### Production Verification
+
+- Backend API: `curl https://web-production-6da3e.up.railway.app/docs` returns Swagger UI
+- Chef listing: `GET /api/chefs` returns 11 chefs with cached responses
+- Booking creation: `POST /api/bookings` with JWT returns 201
+- Booking confirmation: `POST /api/bookings/{id}/confirm` triggers n8n webhook
+- n8n execution: Workflow runs and calls Resend API
+- Email delivery: Confirmation email received at user's address
+
+### Physical Android Testing
+
+- Expo Go SDK 52 on physical Android device
+- Full production stack: Android → Railway API → Neon PostgreSQL → Redis → n8n → Resend
+
+## Delco Engineering Challenge Mapping
+
+### MVP 1 — Database & Booking Flow
+
+- [x] Database schema (users, chefs, dishes, bookings)
+- [x] Seeded chef data (11 chefs, 33 dishes)
+- [x] GET `/api/chefs` with cuisine/locality filtering
+- [x] POST `/api/bookings` with validation
+- [x] Explore screen with filters and chef cards
+- [x] Booking modal with date picker and meal slot selection
+- [x] 20 backend tests passing
+
+### MVP 2 — Security & Tracking
+
+- [x] JWT signup/login with bcrypt password hashing
+- [x] Protected booking routes (Authorization: Bearer header)
+- [x] Input validation and sanitization
+- [x] Redis-backed rate limiting (fail-closed for auth)
+- [x] Booking Tracker with PENDING → CONFIRMED → CHEF_EN_ROUTE status flow
+- [x] Deterministic simulated status progression
+- [x] Physical Android device testing
+- [x] 92 backend tests passing
+
+### MVP 3 — Cloud & Automation
+
+- [x] Backend deployed on Railway with HTTPS
+- [x] Production database on Neon (PostgreSQL)
+- [x] Redis deployed on Railway
+- [x] Redis caching for GET `/api/chefs` (60s TTL)
+- [x] n8n self-hosted on Railway
+- [x] Booking-confirmed webhook (FastAPI → n8n)
+- [x] n8n validates `booking.confirmed` events
+- [x] Resend email integration
+- [x] Confirmation email sent after booking transitions to CONFIRMED
+- [x] Mobile app connected to production HTTPS API
+- [x] 121 backend tests passing
+
+### Submission Artifacts
+
+| Artifact | Status |
+|----------|--------|
+| GitHub repository | Complete |
+| Live API + Swagger docs | https://web-production-6da3e.up.railway.app/docs |
+| Downloadable APK | Pending (EAS Build) |
+| Loom walkthrough | Pending |
+
+## Demo Flow
+
+Recommended walkthrough for reviewers:
+
+1. **Open the app** on Android device or emulator
+2. **Sign up** with a new account (or use a seeded user)
+3. **Browse chefs** on the Explore screen — scroll through the list, note cuisine and pricing
+4. **Filter** by tapping cuisine or locality chips (e.g., "Indian" + "Indirapuram")
+5. **Open a chef** — view full profile, bio, menu with prices
+6. **Tap "Book Chef"** — the booking modal opens (redirects to login if unauthenticated)
+7. **Create a booking** — select a date, choose meal slot, add special requests, tap "Request Booking"
+8. **Booking Tracker** — after creation, the app navigates to the tracker showing the PENDING status timeline
+9. **Watch the status transition** — after ~10 seconds, PENDING transitions to CONFIRMED
+10. **Check backend logs** — Railway logs show `POST /api/bookings/{id}/confirm` with webhook delivery
+11. **Check n8n** — n8n execution log shows the webhook received and processed
+12. **Check email** — confirmation email arrives with booking details
+13. **My Bookings tab** — navigate to the Bookings tab to see the booking with its current status
+
+## License
+
+This project is part of the Delco Engineering Take-Home Challenge.
