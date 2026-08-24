@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_BOOKINGS_MAX_REQUESTS: int = 10
     RATE_LIMIT_CHEFS_MAX_REQUESTS: int = 60
 
+    CHEFS_CACHE_TTL_SECONDS: int = 60
+
     @model_validator(mode="after")
     def reject_insecure_production_secrets(self) -> "Settings":
         if self.ENVIRONMENT == "production":
