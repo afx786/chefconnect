@@ -1,7 +1,6 @@
 import logging
 
 import httpx
-from redis import RedisError
 
 from app.core.config import settings
 

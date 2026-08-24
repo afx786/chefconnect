@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 
@@ -52,6 +52,5 @@ def confirm_booking_endpoint(
     )
     booking = db.scalars(stmt).first()
     if not booking:
-        from fastapi import HTTPException
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
     return confirm_booking(db, booking, current_user)
